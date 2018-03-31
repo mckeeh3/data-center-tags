@@ -2,6 +2,7 @@ package demo;
 
 import akka.actor.*;
 import akka.cluster.sharding.ShardRegion;
+import akka.pattern.BackoffSupervisor;
 import scala.concurrent.duration.FiniteDuration;
 
 import java.io.Serializable;
@@ -11,6 +12,7 @@ import java.util.concurrent.TimeUnit;
 class DispatcherActor extends AbstractLoggingActor {
     private Cancellable queryCycle;
     private Cancellable heartbeatTimeout;
+    private ActorRef dispatcherQuereyActor;
 
     @Override
     public Receive createReceive() {
@@ -24,11 +26,13 @@ class DispatcherActor extends AbstractLoggingActor {
     private void eventTagGo(DispatcherProtocol.EventTagGo eventTagGo) {
         log().debug("{}", eventTagGo);
         scheduleHeartbeatTimeout();
-        scheduleQueryCycle(eventTagGo.eventTag.id);
+        scheduleQueryCycle(eventTagGo.eventTag);
     }
 
     private void query(QueryCycleTick queryCycleTick) {
-        log().debug("TODO {}", queryCycleTick);
+        log().debug("{}", queryCycleTick);
+        startQueryActorIfNotStarted(queryCycleTick.eventTag);
+        dispatcherQuereyActor.tell("query", getSelf());
     }
 
     private void heartbeatTimedOut() {
@@ -52,7 +56,7 @@ class DispatcherActor extends AbstractLoggingActor {
         heartbeatTimeout.cancel();
     }
 
-    private void scheduleQueryCycle(EventTag.Id id) {
+    private void scheduleQueryCycle(EventTag eventTag) {
         if (queryCycle == null) {
             FiniteDuration queryCycleTime = queryCycleTime();
 
@@ -60,11 +64,31 @@ class DispatcherActor extends AbstractLoggingActor {
                     queryCycleTime,
                     queryCycleTime,
                     getSelf(),
-                    new QueryCycleTick(id),
+                    new QueryCycleTick(eventTag),
                     getContext().dispatcher(),
                     ActorRef.noSender()
             );
         }
+    }
+
+    private void startQueryActorIfNotStarted(EventTag eventTag) {
+        if (dispatcherQuereyActor == null) {
+            dispatcherQuereyActor = startQueryActor(eventTag);
+        }
+    }
+
+    private ActorRef startQueryActor(EventTag eventTag) {
+        FiniteDuration minBackOff = FiniteDuration.create(5, TimeUnit.SECONDS);
+        FiniteDuration maxBackOff = FiniteDuration.create(30, TimeUnit.SECONDS);
+
+        return getContext().actorOf(
+                BackoffSupervisor.props(
+                        DispatcherQueryActor.props(eventTag),
+                        String.format("dispatcherQuery-%s", eventTag.id.value),
+                        minBackOff,
+                        maxBackOff,
+                        0.2
+                ));
     }
 
     private void scheduleHeartbeatTimeout() {
@@ -104,15 +128,15 @@ class DispatcherActor extends AbstractLoggingActor {
     }
 
     private static class QueryCycleTick implements Serializable {
-        final EventTag.Id id;
+        final EventTag eventTag;
 
-        private QueryCycleTick(EventTag.Id id) {
-            this.id = id;
+        private QueryCycleTick(EventTag eventTag) {
+            this.eventTag = eventTag;
         }
 
         @Override
         public String toString() {
-            return String.format("%s[%s]", getClass().getSimpleName(), id);
+            return String.format("%s[%s]", getClass().getSimpleName(), eventTag);
         }
     }
 }

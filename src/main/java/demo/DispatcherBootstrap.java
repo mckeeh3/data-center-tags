@@ -20,7 +20,7 @@ class DispatcherBootstrap {
 
     private static void createClusterSingletonManagerActor(ActorSystem actorSystem) {
         Props clusterSingletonManagerProps = ClusterSingletonManager.props(
-                DispatcherManagerActor.props(setupClusterSharding(actorSystem)),
+                DispatcherDcMonitorActor.props(setupClusterSharding(actorSystem)),
                 PoisonPill.getInstance(),
                 ClusterSingletonManagerSettings.create(actorSystem)
         );

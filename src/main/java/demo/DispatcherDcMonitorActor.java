@@ -14,12 +14,12 @@ import static demo.DataCenter.name;
 import static demo.DataCenter.status;
 import static demo.DataCenter.tagCount;
 
-public class DispatcherManagerActor extends AbstractLoggingActor {
+public class DispatcherDcMonitorActor extends AbstractLoggingActor {
     private final ActorRef shardRegion;
     private Cancellable heartbeat;
     private DataCenter.Name dataCenterName;
 
-    public DispatcherManagerActor(ActorRef shardRegion) {
+    public DispatcherDcMonitorActor(ActorRef shardRegion) {
         this.shardRegion = shardRegion;
     }
 
@@ -58,7 +58,7 @@ public class DispatcherManagerActor extends AbstractLoggingActor {
     }
 
     static Props props(ActorRef shardRegion) {
-        return Props.create(DispatcherManagerActor.class, shardRegion);
+        return Props.create(DispatcherDcMonitorActor.class, shardRegion);
     }
 
     @Override
