@@ -64,8 +64,12 @@ class DispatcherHttpPostActor extends AbstractLoggingActor {
     }
 
     private void response(HttpResponse httpResponse) {
-        log().debug("Post response {}", httpResponse);
-        postSender.tell(new Response(httpResponse.status().intValue(), httpResponse.status().reason()), self());
+        log().debug("Post response {}", httpResponse.status());
+        if (httpResponse.status().isSuccess()) {
+            postSender.tell(new Response(httpResponse.status().intValue(), httpResponse.status().reason()), self());
+        } else {
+            throw new RuntimeException(String.format("HTTP post request failed %s", httpResponse.status()));
+        }
         getContext().become(idle);
         cancelHttpPostTimeout();
     }
