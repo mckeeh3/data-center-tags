@@ -26,18 +26,18 @@ public class DispatcherDcMonitorActor extends AbstractLoggingActor {
     @Override
     public Receive createReceive() {
         return receiveBuilder()
-                .matchEquals("tick", t -> tick())
+                .matchEquals("heartbeat", h -> heartbeat())
                 .build();
     }
 
-    private void tick() {
-        log().info("tick");
+    private void heartbeat() {
+        log().info("heartbeat");
         DataCenters dataCenters = readDataCenters();
         dataCenters.tagsFor(dataCenterName).forEach(this::dispatcherHeartbeat);
     }
 
     private void dispatcherHeartbeat(EventTag eventTag) {
-        shardRegion.tell(new DispatcherProtocol.EventTagGo(eventTag), getSelf());
+        shardRegion.tell(new DispatcherProtocol.EventTagGo(eventTag), self());
     }
 
     private DataCenters readDataCenters() {
@@ -66,47 +66,42 @@ public class DispatcherDcMonitorActor extends AbstractLoggingActor {
         log().debug("Start, shard region {}", shardRegion);
 
         retrieveDataCenterName();
-        scheduleHeartbeats();
+        scheduleHeartbeat();
     }
 
     @Override
     public void postStop() {
         log().debug("Stop");
-        heartbeat.cancel();
+        cancelHeartbeat();
     }
 
-    private void scheduleHeartbeats() {
-        FiniteDuration tickInterval = tickInterval();
+    private void scheduleHeartbeat() {
+        FiniteDuration tickInterval = heartbeatInterval();
 
-        heartbeat = getContext().getSystem().scheduler().schedule(
+        heartbeat = context().system().scheduler().schedule(
                 tickInterval,
                 tickInterval,
-                getSelf(),
-                "tick",
-                getContext().dispatcher(),
+                self(),
+                "heartbeat",
+                context().dispatcher(),
                 ActorRef.noSender()
         );
     }
 
-    private FiniteDuration tickInterval() {
-        Duration tickInterval = retrieveHeartbeatInterval();
-
-        return FiniteDuration.create(tickInterval.toNanos(), TimeUnit.NANOSECONDS);
+    private void cancelHeartbeat() {
+        if (heartbeat != null) {
+            heartbeat.cancel();
+            heartbeat = null;
+        }
     }
 
-    private Duration retrieveHeartbeatInterval() {
-        String heartbeatIntervalConfig = "demo.dispatcher.heartbeat-interval";
-        try {
-            return getContext().getSystem().settings().config().getDuration(heartbeatIntervalConfig);
-        } catch (Exception e) {
-            int defaultSeconds = 60;
-            log().error(e, "Configuration setting '{}' not found, using {}s default", heartbeatIntervalConfig, defaultSeconds);
-            return Duration.ofSeconds(defaultSeconds);
-        }
+    private FiniteDuration heartbeatInterval() {
+        Duration tickInterval = context().system().settings().config().getDuration("dispatcher.heartbeat-interval");
+        return FiniteDuration.create(tickInterval.toNanos(), TimeUnit.NANOSECONDS);
     }
 
     private void retrieveDataCenterName() {
         String dataCenterConfig = "akka.cluster.multi-data-center.self-data-center";
-        dataCenterName = DataCenter.name(getContext().getSystem().settings().config().getString(dataCenterConfig));
+        dataCenterName = DataCenter.name(context().system().settings().config().getString(dataCenterConfig));
     }
 }

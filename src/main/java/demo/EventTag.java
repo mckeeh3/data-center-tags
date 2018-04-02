@@ -7,9 +7,9 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Objects;
 
 class EventTag implements Serializable {
-    final Id id;
-    final DataCenter.Name name;
-    final DataCenter.Status status;
+    public final Id id;
+    public final DataCenter.Name name;
+    public final DataCenter.Status status;
 
     private EventTag(Id id, DataCenter.Name name, DataCenter.Status status) {
         this.id = id;
@@ -23,6 +23,10 @@ class EventTag implements Serializable {
 
     static Id id(String id) {
         return new Id(id);
+    }
+
+    static DataCenter.Status status(DataCenter.Status.Is status) {
+        return new DataCenter.Status(status);
     }
 
     int hashKey() {

@@ -31,6 +31,56 @@ class DispatcherProtocol {
         }
     }
 
+    // todo make this real
+    static class Entity implements Serializable {
+        final Tag tag;
+        final Id id;
+
+        Entity(Tag tag, Id id) {
+            this.tag = tag;
+            this.id = id;
+        }
+
+        static Tag tag(String value) {
+            return new Tag(value);
+        }
+
+        static Id id(String value) {
+            return new Id(value);
+        }
+
+        @Override
+        public String toString() {
+            return String.format("%s[%s, %s]", getClass().getSimpleName(), tag, id);
+        }
+
+        static class Tag {
+            final String value;
+
+            Tag(String value) {
+                this.value = value;
+            }
+
+            @Override
+            public String toString() {
+                return String.format("%s[%s]", getClass().getSimpleName(), value);
+            }
+        }
+
+        static class Id {
+            final String value;
+
+            Id(String value) {
+                this.value = value;
+            }
+
+            @Override
+            public String toString() {
+                return String.format("%s[%s]", getClass().getSimpleName(), value);
+            }
+        }
+    }
+
     static ShardRegion.MessageExtractor messageExtractor() {
         final int numberOfShards = 100;
 

@@ -77,7 +77,7 @@ class DataCenter {
 
         private final Is is;
 
-        public Status(Status.Is is) {
+        Status(Status.Is is) {
             this.is = is;
         }
 
@@ -112,7 +112,7 @@ class DataCenter {
     static class TagCount implements Serializable {
         final int value;
 
-        public TagCount(int value) {
+        TagCount(int value) {
             this.value = value;
         }
 

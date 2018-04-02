@@ -12,7 +12,7 @@ import java.util.concurrent.TimeUnit;
 class DispatcherActor extends AbstractLoggingActor {
     private Cancellable queryCycle;
     private Cancellable heartbeatTimeout;
-    private ActorRef dispatcherQuereyActor;
+    private ActorRef dispatcherQuery;
 
     @Override
     public Receive createReceive() {
@@ -31,12 +31,11 @@ class DispatcherActor extends AbstractLoggingActor {
 
     private void query(QueryCycleTick queryCycleTick) {
         log().debug("{}", queryCycleTick);
-        startQueryActorIfNotStarted(queryCycleTick.eventTag);
-        dispatcherQuereyActor.tell("query", getSelf());
+        dispatcherQuery(queryCycleTick.eventTag).tell("query", self());
     }
 
     private void heartbeatTimedOut() {
-        getContext().getParent().tell(new ShardRegion.Passivate(PoisonPill.getInstance()), getSelf());
+        context().parent().tell(new ShardRegion.Passivate(PoisonPill.getInstance()), self());
     }
 
     static Props props() {
@@ -46,85 +45,85 @@ class DispatcherActor extends AbstractLoggingActor {
     @Override
     public void preStart() {
         log().debug("Start");
-        scheduleHeartbeatTimeout();
     }
 
     @Override
     public void postStop() {
         log().debug("Stop");
-        queryCycle.cancel();
-        heartbeatTimeout.cancel();
+        cancelHeartbeatTimeout();
+        cancelQueryCycle();
     }
 
     private void scheduleQueryCycle(EventTag eventTag) {
         if (queryCycle == null) {
             FiniteDuration queryCycleTime = queryCycleTime();
 
-            queryCycle = getContext().getSystem().scheduler().schedule(
+            queryCycle = context().system().scheduler().schedule(
                     queryCycleTime,
                     queryCycleTime,
-                    getSelf(),
+                    self(),
                     new QueryCycleTick(eventTag),
-                    getContext().dispatcher(),
+                    context().dispatcher(),
                     ActorRef.noSender()
             );
         }
     }
 
-    private void startQueryActorIfNotStarted(EventTag eventTag) {
-        if (dispatcherQuereyActor == null) {
-            dispatcherQuereyActor = startQueryActor(eventTag);
+    private void cancelQueryCycle() {
+        if (queryCycle != null) {
+            queryCycle.cancel();
+            queryCycle = null;
         }
+    }
+
+    private ActorRef dispatcherQuery(EventTag eventTag) {
+        if (dispatcherQuery == null) {
+            dispatcherQuery = startQueryActor(eventTag);
+        }
+        return dispatcherQuery;
     }
 
     private ActorRef startQueryActor(EventTag eventTag) {
         FiniteDuration minBackOff = FiniteDuration.create(5, TimeUnit.SECONDS);
         FiniteDuration maxBackOff = FiniteDuration.create(30, TimeUnit.SECONDS);
 
-        return getContext().actorOf(
+        return context().actorOf(
                 BackoffSupervisor.props(
                         DispatcherQueryActor.props(eventTag),
-                        String.format("dispatcherQuery-%s", eventTag.id.value),
+                        "query",
                         minBackOff,
                         maxBackOff,
                         0.2
-                ));
+                ), "supervisor");
     }
 
     private void scheduleHeartbeatTimeout() {
-        if (heartbeatTimeout != null) {
-            heartbeatTimeout.cancel();
-        }
+        cancelHeartbeatTimeout();
 
-        heartbeatTimeout = getContext().getSystem().scheduler().scheduleOnce(
+        heartbeatTimeout = context().system().scheduler().scheduleOnce(
                 heartbeatTimeout(),
-                getSelf(),
+                self(),
                 "heartbeatTimeout",
-                getContext().dispatcher(),
+                context().dispatcher(),
                 ActorRef.noSender()
         );
     }
 
-    private FiniteDuration queryCycleTime() {
-        Duration queryCycleTime = retrieveTimeSetting("demo.dispatcher.query-cycle-time");
+    private void cancelHeartbeatTimeout() {
+        if (heartbeatTimeout != null) {
+            heartbeatTimeout.cancel();
+            heartbeatTimeout = null;
+        }
+    }
 
+    private FiniteDuration queryCycleTime() {
+        Duration queryCycleTime = context().system().settings().config().getDuration("dispatcher.query-cycle-time");
         return FiniteDuration.create(queryCycleTime.toNanos(), TimeUnit.NANOSECONDS);
     }
 
     private FiniteDuration heartbeatTimeout() {
-        Duration tickInterval = retrieveTimeSetting("demo.dispatcher.heartbeat-timeout");
-
+        Duration tickInterval = context().system().settings().config().getDuration("dispatcher.heartbeat-timeout");
         return FiniteDuration.create(tickInterval.toNanos(), TimeUnit.NANOSECONDS);
-    }
-
-    private Duration retrieveTimeSetting(String timeSettingPath) {
-        try {
-            return getContext().getSystem().settings().config().getDuration(timeSettingPath);
-        } catch (Exception e) {
-            int defaultSeconds = 60;
-            log().error(e, "Configuration setting '{}' not found, using {}s default", timeSettingPath, defaultSeconds);
-            return Duration.ofSeconds(defaultSeconds);
-        }
     }
 
     private static class QueryCycleTick implements Serializable {
