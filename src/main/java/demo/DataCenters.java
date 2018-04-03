@@ -2,6 +2,7 @@ package demo;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.TreeMap;
 
 class DataCenters {
@@ -21,13 +22,23 @@ class DataCenters {
     }
 
     List<EventTag> tagsFor(DataCenter.Name name) {
-        List<EventTag> tags = new ArrayList<>();
+        if (lookup(name).isPresent()) {
+            List<EventTag> tags = new ArrayList<>();
+            dataCenters.forEach(dc -> tags.addAll(dc.tags()));
 
-        for (DataCenter dataCenter : dataCenters) {
-            tags.addAll(dataCenter.tags());
+            return filter(name, tags);
+        } else {
+            return new ArrayList<>();
         }
+    }
 
-        return filter(name, tags);
+    private Optional<DataCenter> lookup(DataCenter.Name name) {
+        for (DataCenter dataCenter : dataCenters) {
+            if (name.equals(dataCenter.name) && dataCenter.status.isUp()) {
+                return Optional.of(dataCenter);
+            }
+        }
+        return Optional.empty();
     }
 
     private List<EventTag> filter(DataCenter.Name name, List<EventTag> tags) {
@@ -51,10 +62,10 @@ class DataCenters {
     private boolean isNotMyDownTag(DataCenter.Name name, EventTag eventTag, TreeMap<Integer, EventTag> consistentHash) {
         if (eventTag.status.isDown() && !eventTag.name.equals(name)) {
             EventTag eventTagLower = nextLower(eventTag, consistentHash);
-            while (!eventTagLower.id.equals(eventTag.id) && eventTagLower.name.equals(eventTag.name)) {
+            while (!eventTagLower.id.equals(eventTag.id) && eventTagLower.status.isDown()) {
                 eventTagLower = nextLower(eventTagLower, consistentHash);
             }
-            return eventTagLower.name.equals(name);
+            return !eventTagLower.name.equals(name);
         } else {
             return false;
         }

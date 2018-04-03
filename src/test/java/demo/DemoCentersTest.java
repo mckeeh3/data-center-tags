@@ -64,9 +64,58 @@ class DemoCentersTest {
         assertThat(tags3.size(), greaterThan(dataCenter3.tagCount.value));
         assertThat(tags3.size(), lessThan(dataCenter1.tagCount.value + dataCenter3.tagCount.value));
 
-        assertEquals(tags2.size() + tags3.size(), dataCenter1.tagCount.value + dataCenter2.tagCount.value + dataCenter3.tagCount.value);
+        assertEquals(dataCenter1.tagCount.value + dataCenter2.tagCount.value + dataCenter3.tagCount.value,
+                tags2.size() + tags3.size());
 
         tags2.retainAll(tags3);
         assertTrue(tags2.isEmpty());
+
+        assertFalse(tags2.removeAll(tags3));
+        assertFalse(tags3.removeAll(tags2));
+    }
+
+    @Test
+    void tagsForWhenTwoOfFiveDataCentersAreDown() {
+        DataCenter dataCenter1 = DataCenter.create(name("dc1"), status(Status.Is.up), tagCount(50));
+        DataCenter dataCenter2 = DataCenter.create(name("dc2"), status(Status.Is.down), tagCount(75));
+        DataCenter dataCenter3 = DataCenter.create(name("dc3"), status(Status.Is.up), tagCount(25));
+        DataCenter dataCenter4 = DataCenter.create(name("dc4"), status(Status.Is.down), tagCount(35));
+        DataCenter dataCenter5 = DataCenter.create(name("dc5"), status(Status.Is.up), tagCount(45));
+
+        DataCenters dataCenters = DataCenters.create()
+                .add(dataCenter1)
+                .add(dataCenter2)
+                .add(dataCenter3)
+                .add(dataCenter4)
+                .add(dataCenter5);
+
+        List<EventTag> tags2 = dataCenters.tagsFor(dataCenter2.name);
+
+        assertNotNull(tags2);
+        assertTrue(tags2.isEmpty());
+
+        List<EventTag> tags4 = dataCenters.tagsFor(dataCenter4.name);
+
+        assertNotNull(tags4);
+        assertTrue(tags4.isEmpty());
+
+        List<EventTag> tags1 = dataCenters.tagsFor(dataCenter1.name);
+        List<EventTag> tags3 = dataCenters.tagsFor(dataCenter3.name);
+        List<EventTag> tags5 = dataCenters.tagsFor(dataCenter5.name);
+
+        assertThat(tags1.size(), greaterThan(dataCenter1.tagCount.value));
+        assertThat(tags3.size(), greaterThan(dataCenter3.tagCount.value));
+        assertThat(tags5.size(), greaterThan(dataCenter5.tagCount.value));
+
+        assertEquals(dataCenter1.tagCount.value + dataCenter2.tagCount.value + dataCenter3.tagCount.value
+                        + dataCenter4.tagCount.value + dataCenter5.tagCount.value,
+                tags1.size() + tags3.size() + tags5.size());
+
+        assertFalse(tags1.removeAll(tags3));
+        assertFalse(tags1.removeAll(tags5));
+        assertFalse(tags3.removeAll(tags1));
+        assertFalse(tags3.removeAll(tags5));
+        assertFalse(tags5.removeAll(tags1));
+        assertFalse(tags5.removeAll(tags3));
     }
 }
