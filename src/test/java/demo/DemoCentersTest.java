@@ -13,9 +13,9 @@ import static org.junit.Assert.*;
 class DemoCentersTest {
     @Test
     void tagsForWhenAllDataCentersUp1() {
-        DataCenter dataCenter1 = DataCenter.create(name("dc1"), status(Status.Is.up), tagCount(10));
-        DataCenter dataCenter2 = DataCenter.create(name("dc2"), status(Status.Is.up), tagCount(10));
-        DataCenter dataCenter3 = DataCenter.create(name("dc3"), status(Status.Is.up), tagCount(10));
+        DataCenter dataCenter1 = DataCenter.create(name("dc1"), status(Status.Is.up), runner(Runner.Is.on), tagCount(10));
+        DataCenter dataCenter2 = DataCenter.create(name("dc2"), status(Status.Is.up), runner(Runner.Is.on), tagCount(10));
+        DataCenter dataCenter3 = DataCenter.create(name("dc3"), status(Status.Is.up), runner(Runner.Is.on), tagCount(10));
 
         DataCenters dataCenters = DataCenters.create().add(dataCenter1).add(dataCenter2).add(dataCenter3);
 
@@ -27,9 +27,9 @@ class DemoCentersTest {
 
     @Test
     void tagsForWhenAllDataCentersUp3() {
-        DataCenter dataCenter1 = DataCenter.create(name("dc1"), status(Status.Is.up), tagCount(10));
-        DataCenter dataCenter2 = DataCenter.create(name("dc2"), status(Status.Is.up), tagCount(10));
-        DataCenter dataCenter3 = DataCenter.create(name("dc3"), status(Status.Is.up), tagCount(10));
+        DataCenter dataCenter1 = DataCenter.create(name("dc1"), status(Status.Is.up), runner(Runner.Is.on), tagCount(10));
+        DataCenter dataCenter2 = DataCenter.create(name("dc2"), status(Status.Is.up), runner(Runner.Is.on), tagCount(10));
+        DataCenter dataCenter3 = DataCenter.create(name("dc3"), status(Status.Is.up), runner(Runner.Is.on), tagCount(10));
 
         DataCenters dataCenters = DataCenters.create().add(dataCenter1).add(dataCenter2).add(dataCenter3);
 
@@ -40,10 +40,33 @@ class DemoCentersTest {
     }
 
     @Test
-    void tagsForWhenDataCenter1IsDown() {
-        DataCenter dataCenter1 = DataCenter.create(name("dc1"), status(Status.Is.down), tagCount(100));
-        DataCenter dataCenter2 = DataCenter.create(name("dc2"), status(Status.Is.up), tagCount(200));
-        DataCenter dataCenter3 = DataCenter.create(name("dc3"), status(Status.Is.up), tagCount(300));
+    void tagsForWhenOneRunnerIsOffAndOneDataCenterIsDown() {
+        DataCenter dataCenter1 = DataCenter.create(name("dc1"), status(Status.Is.down), runner(Runner.Is.on), tagCount(100));
+        DataCenter dataCenter2 = DataCenter.create(name("dc2"), status(Status.Is.up), runner(Runner.Is.off), tagCount(200));
+        DataCenter dataCenter3 = DataCenter.create(name("dc3"), status(Status.Is.up), runner(Runner.Is.on), tagCount(300));
+
+        DataCenters dataCenters = DataCenters.create().add(dataCenter1).add(dataCenter2).add(dataCenter3);
+
+        List<EventTag> tags1 = dataCenters.tagsFor(dataCenter1.name);
+        List<EventTag> tags2 = dataCenters.tagsFor(dataCenter2.name);
+        List<EventTag> tags3 = dataCenters.tagsFor(dataCenter3.name);
+
+        assertNotNull(tags1);
+        assertTrue(tags1.isEmpty());
+
+        assertNotNull(tags2);
+        assertTrue(tags2.isEmpty());
+
+        assertNotNull(tags3);
+        assertThat(tags3.size(), greaterThan(dataCenter3.tagCount.value));
+        assertThat(tags3.size(), lessThan(dataCenter3.tagCount.value + dataCenter1.tagCount.value));
+    }
+
+    @Test
+    void tagsForWhenDataCenterOneIsDown() {
+        DataCenter dataCenter1 = DataCenter.create(name("dc1"), status(Status.Is.down), runner(Runner.Is.on), tagCount(100));
+        DataCenter dataCenter2 = DataCenter.create(name("dc2"), status(Status.Is.up), runner(Runner.Is.on), tagCount(200));
+        DataCenter dataCenter3 = DataCenter.create(name("dc3"), status(Status.Is.up), runner(Runner.Is.on), tagCount(300));
 
         DataCenters dataCenters = DataCenters.create().add(dataCenter1).add(dataCenter2).add(dataCenter3);
 
@@ -75,12 +98,32 @@ class DemoCentersTest {
     }
 
     @Test
+    void tagsForWhenAllDataCentersAreDown() {
+        DataCenter dataCenter1 = DataCenter.create(name("dc1"), status(Status.Is.down), runner(Runner.Is.on), tagCount(100));
+        DataCenter dataCenter2 = DataCenter.create(name("dc2"), status(Status.Is.down), runner(Runner.Is.on), tagCount(200));
+        DataCenter dataCenter3 = DataCenter.create(name("dc3"), status(Status.Is.down), runner(Runner.Is.on), tagCount(300));
+
+        DataCenters dataCenters = DataCenters.create().add(dataCenter1).add(dataCenter2).add(dataCenter3);
+
+        List<EventTag> tags1 = dataCenters.tagsFor(dataCenter1.name);
+        List<EventTag> tags2 = dataCenters.tagsFor(dataCenter2.name);
+        List<EventTag> tags3 = dataCenters.tagsFor(dataCenter3.name);
+
+        assertNotNull(tags1);
+        assertNotNull(tags2);
+        assertNotNull(tags3);
+        assertTrue(tags1.isEmpty());
+        assertTrue(tags2.isEmpty());
+        assertTrue(tags3.isEmpty());
+    }
+
+    @Test
     void tagsForWhenTwoOfFiveDataCentersAreDown() {
-        DataCenter dataCenter1 = DataCenter.create(name("dc1"), status(Status.Is.up), tagCount(50));
-        DataCenter dataCenter2 = DataCenter.create(name("dc2"), status(Status.Is.down), tagCount(75));
-        DataCenter dataCenter3 = DataCenter.create(name("dc3"), status(Status.Is.up), tagCount(25));
-        DataCenter dataCenter4 = DataCenter.create(name("dc4"), status(Status.Is.down), tagCount(35));
-        DataCenter dataCenter5 = DataCenter.create(name("dc5"), status(Status.Is.up), tagCount(45));
+        DataCenter dataCenter1 = DataCenter.create(name("dc1"), status(Status.Is.up), runner(Runner.Is.on), tagCount(50));
+        DataCenter dataCenter2 = DataCenter.create(name("dc2"), status(Status.Is.down), runner(Runner.Is.on), tagCount(75));
+        DataCenter dataCenter3 = DataCenter.create(name("dc3"), status(Status.Is.up), runner(Runner.Is.on), tagCount(25));
+        DataCenter dataCenter4 = DataCenter.create(name("dc4"), status(Status.Is.down), runner(Runner.Is.on), tagCount(35));
+        DataCenter dataCenter5 = DataCenter.create(name("dc5"), status(Status.Is.up), runner(Runner.Is.on), tagCount(45));
 
         DataCenters dataCenters = DataCenters.create()
                 .add(dataCenter1)

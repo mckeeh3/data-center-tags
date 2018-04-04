@@ -22,7 +22,9 @@ class DataCenters {
     }
 
     List<EventTag> tagsFor(DataCenter.Name name) {
-        if (lookup(name).isPresent()) {
+        final Optional<DataCenter> dataCenter = lookup(name);
+
+        if (dataCenter.isPresent() && dataCenter.get().runner.isOn()) {
             List<EventTag> tags = new ArrayList<>();
             dataCenters.forEach(dc -> tags.addAll(dc.tags()));
 

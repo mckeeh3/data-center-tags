@@ -8,16 +8,18 @@ import java.util.Objects;
 class DataCenter {
     final Name name;
     final Status status;
+    final Runner runner;
     final TagCount tagCount;
 
-    private DataCenter(Name name, Status status, TagCount tagCount) {
+    private DataCenter(Name name, Status status, Runner runner, TagCount tagCount) {
         this.name = name;
         this.status = status;
+        this.runner = runner;
         this.tagCount = tagCount;
     }
 
-    static DataCenter create(Name name, Status status, TagCount tagCount) {
-        return new DataCenter(name, status, tagCount);
+    static DataCenter create(Name name, Status status, Runner runner, TagCount tagCount) {
+        return new DataCenter(name, status, runner, tagCount);
     }
 
     static Name name(String name) {
@@ -26,6 +28,10 @@ class DataCenter {
 
     static Status status(Status.Is status) {
         return new Status(status);
+    }
+
+    static Runner runner(Runner.Is runner) {
+        return new Runner(runner);
     }
 
     static TagCount tagCount(int tagCount) {
@@ -43,7 +49,7 @@ class DataCenter {
 
     @Override
     public String toString() {
-        return String.format("%s[%s, %s, %s]", getClass().getSimpleName(), name, status, tagCount);
+        return String.format("%s[%s, %s, %s, %s]", getClass().getSimpleName(), name, status, runner, tagCount);
     }
 
     static class Name implements Serializable {
@@ -69,6 +75,43 @@ class DataCenter {
         @Override
         public String toString() {
             return String.format("%s[%s]", getClass().getSimpleName(), value);
+        }
+    }
+
+    static class Runner implements Serializable {
+        enum Is {on, off}
+
+        private final Is is;
+
+        Runner(Is is) {
+            this.is = is;
+        }
+
+        boolean isOn() {
+            return Is.on.equals(is);
+        }
+
+        boolean isOff() {
+            return Is.off.equals(is);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            Runner runner = (Runner) o;
+            return is == runner.is;
+        }
+
+        @Override
+        public int hashCode() {
+
+            return Objects.hash(is);
+        }
+
+        @Override
+        public String toString() {
+            return String.format("%s[%s]", getClass().getSimpleName(), is);
         }
     }
 

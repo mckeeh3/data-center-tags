@@ -10,9 +10,7 @@ import java.time.Duration;
 import java.time.LocalTime;
 import java.util.concurrent.TimeUnit;
 
-import static demo.DataCenter.name;
-import static demo.DataCenter.status;
-import static demo.DataCenter.tagCount;
+import static demo.DataCenter.*;
 
 public class DispatcherDcMonitorActor extends AbstractLoggingActor {
     private final ActorRef shardRegion;
@@ -42,16 +40,22 @@ public class DispatcherDcMonitorActor extends AbstractLoggingActor {
 
     private DataCenters readDataCenters() {
         // todo read data center status from database
-        if (LocalTime.now().getMinute() % 2 == 0) {
-            DataCenter dataCenter1 = DataCenter.create(name("dc1"), status(DataCenter.Status.Is.up), tagCount(10));
-            DataCenter dataCenter2 = DataCenter.create(name("dc2"), status(DataCenter.Status.Is.up), tagCount(10));
-            DataCenter dataCenter3 = DataCenter.create(name("dc3"), status(DataCenter.Status.Is.up), tagCount(10));
+        if (LocalTime.now().getMinute() % 3 == 0) {
+            DataCenter dataCenter1 = DataCenter.create(name("dc1"), status(DataCenter.Status.Is.up), runner(Runner.Is.on), tagCount(10));
+            DataCenter dataCenter2 = DataCenter.create(name("dc2"), status(DataCenter.Status.Is.up), runner(Runner.Is.on), tagCount(10));
+            DataCenter dataCenter3 = DataCenter.create(name("dc3"), status(DataCenter.Status.Is.up), runner(Runner.Is.off), tagCount(10));
+
+            return DataCenters.create().add(dataCenter1).add(dataCenter2).add(dataCenter3);
+        } else if (LocalTime.now().getMinute() % 2 == 0) {
+            DataCenter dataCenter1 = DataCenter.create(name("dc1"), status(DataCenter.Status.Is.up), runner(Runner.Is.on), tagCount(10));
+            DataCenter dataCenter2 = DataCenter.create(name("dc2"), status(DataCenter.Status.Is.up), runner(Runner.Is.on), tagCount(10));
+            DataCenter dataCenter3 = DataCenter.create(name("dc3"), status(DataCenter.Status.Is.up), runner(Runner.Is.on), tagCount(10));
 
             return DataCenters.create().add(dataCenter1).add(dataCenter2).add(dataCenter3);
         } else {
-            DataCenter dataCenter1 = DataCenter.create(name("dc1"), status(DataCenter.Status.Is.up), tagCount(10));
-            DataCenter dataCenter2 = DataCenter.create(name("dc2"), status(DataCenter.Status.Is.down), tagCount(10));
-            DataCenter dataCenter3 = DataCenter.create(name("dc3"), status(DataCenter.Status.Is.up), tagCount(10));
+            DataCenter dataCenter1 = DataCenter.create(name("dc1"), status(DataCenter.Status.Is.up), runner(Runner.Is.on), tagCount(10));
+            DataCenter dataCenter2 = DataCenter.create(name("dc2"), status(DataCenter.Status.Is.down), runner(Runner.Is.on), tagCount(10));
+            DataCenter dataCenter3 = DataCenter.create(name("dc3"), status(DataCenter.Status.Is.up), runner(Runner.Is.on), tagCount(10));
 
             return DataCenters.create().add(dataCenter1).add(dataCenter2).add(dataCenter3);
         }
