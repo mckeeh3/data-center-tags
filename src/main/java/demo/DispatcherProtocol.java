@@ -87,6 +87,20 @@ class DispatcherProtocol {
         return new ShardRegion.MessageExtractor() {
             @Override
             public String shardId(Object message) {
+                return extractShardIdFromEventMessages(message);
+            }
+
+            @Override
+            public String entityId(Object message) {
+                return extractEntityIdFromEventMessages(message);
+            }
+
+            @Override
+            public Object entityMessage(Object message) {
+                return message;
+            }
+
+            private String extractShardIdFromEventMessages(Object message) {
                 if (message instanceof EventTagGo) {
                     return ((EventTagGo) message).eventTag.id.value.hashCode() % numberOfShards + "";
                 } else if (message instanceof EventTagStop) {
@@ -96,8 +110,7 @@ class DispatcherProtocol {
                 }
             }
 
-            @Override
-            public String entityId(Object message) {
+            private String extractEntityIdFromEventMessages(Object message) {
                 if (message instanceof EventTagGo) {
                     return ((EventTagGo) message).eventTag.id.value;
                 } else if (message instanceof EventTagStop) {
@@ -105,11 +118,6 @@ class DispatcherProtocol {
                 } else {
                     return null;
                 }
-            }
-
-            @Override
-            public Object entityMessage(Object message) {
-                return message;
             }
         };
     }
