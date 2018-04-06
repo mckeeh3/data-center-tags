@@ -21,6 +21,11 @@ class DataCenters {
         return this;
     }
 
+    DataCenters addAll(List<DataCenter> dataCenterList) {
+        dataCenters.addAll(dataCenterList);
+        return this;
+    }
+
     List<EventTag> tagsFor(DataCenter.Name name) {
         final Optional<DataCenter> dataCenter = lookup(name);
 

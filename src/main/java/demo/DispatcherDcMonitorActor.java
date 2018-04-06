@@ -8,6 +8,10 @@ import scala.concurrent.duration.FiniteDuration;
 
 import java.time.Duration;
 import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
 
 import static demo.DataCenter.*;
@@ -29,36 +33,42 @@ public class DispatcherDcMonitorActor extends AbstractLoggingActor {
     }
 
     private void heartbeat() {
-        log().info("heartbeat");
-        DataCenters dataCenters = readDataCenters();
-        dataCenters.tagsFor(dataCenterName).forEach(this::dispatcherHeartbeat);
+        log().debug("heartbeat");
+        queryDataCenters();
     }
 
-    private void dispatcherHeartbeat(EventTag eventTag) {
+    private void heartbeat(EventTag eventTag) {
         shardRegion.tell(new DispatcherProtocol.EventTagGo(eventTag), self());
     }
 
-    private DataCenters readDataCenters() {
+    private void queryDataCenters() {
+        queryDataCentersDb().thenAccept(this::queryDataCenters);
+    }
+
+    private void queryDataCenters(List<DataCenter> dataCenterList) {
+        final DataCenters dataCenters = DataCenters.create().addAll(dataCenterList);
+
+        dataCenters.tagsFor(dataCenterName).forEach(this::heartbeat);
+    }
+
+    private CompletionStage<List<DataCenter>> queryDataCentersDb() {
         // todo read data center status from database
+        List<DataCenter> dataCenters = new ArrayList<>();
         if (LocalTime.now().getMinute() % 3 == 0) {
-            DataCenter dataCenter1 = DataCenter.create(name("dc1"), status(DataCenter.Status.Is.up), runner(Runner.Is.on), tagCount(10));
-            DataCenter dataCenter2 = DataCenter.create(name("dc2"), status(DataCenter.Status.Is.up), runner(Runner.Is.on), tagCount(10));
-            DataCenter dataCenter3 = DataCenter.create(name("dc3"), status(DataCenter.Status.Is.up), runner(Runner.Is.off), tagCount(10));
-
-            return DataCenters.create().add(dataCenter1).add(dataCenter2).add(dataCenter3);
+            dataCenters.add(DataCenter.create(name("dc1"), status(Status.Is.up), runner(Runner.Is.on), tagCount(10)));
+            dataCenters.add(DataCenter.create(name("dc2"), status(Status.Is.up), runner(Runner.Is.on), tagCount(10)));
+            dataCenters.add(DataCenter.create(name("dc3"), status(Status.Is.up), runner(Runner.Is.off), tagCount(10)));
         } else if (LocalTime.now().getMinute() % 2 == 0) {
-            DataCenter dataCenter1 = DataCenter.create(name("dc1"), status(DataCenter.Status.Is.up), runner(Runner.Is.on), tagCount(10));
-            DataCenter dataCenter2 = DataCenter.create(name("dc2"), status(DataCenter.Status.Is.up), runner(Runner.Is.on), tagCount(10));
-            DataCenter dataCenter3 = DataCenter.create(name("dc3"), status(DataCenter.Status.Is.up), runner(Runner.Is.on), tagCount(10));
-
-            return DataCenters.create().add(dataCenter1).add(dataCenter2).add(dataCenter3);
+            dataCenters.add(DataCenter.create(name("dc1"), status(Status.Is.up), runner(Runner.Is.on), tagCount(10)));
+            dataCenters.add(DataCenter.create(name("dc2"), status(Status.Is.down), runner(Runner.Is.on), tagCount(10)));
+            dataCenters.add(DataCenter.create(name("dc3"), status(Status.Is.up), runner(Runner.Is.on), tagCount(10)));
         } else {
-            DataCenter dataCenter1 = DataCenter.create(name("dc1"), status(DataCenter.Status.Is.up), runner(Runner.Is.on), tagCount(10));
-            DataCenter dataCenter2 = DataCenter.create(name("dc2"), status(DataCenter.Status.Is.down), runner(Runner.Is.on), tagCount(10));
-            DataCenter dataCenter3 = DataCenter.create(name("dc3"), status(DataCenter.Status.Is.up), runner(Runner.Is.on), tagCount(10));
-
-            return DataCenters.create().add(dataCenter1).add(dataCenter2).add(dataCenter3);
+            dataCenters.add(DataCenter.create(name("dc1"), status(Status.Is.up), runner(Runner.Is.on), tagCount(10)));
+            dataCenters.add(DataCenter.create(name("dc2"), status(Status.Is.up), runner(Runner.Is.on), tagCount(10)));
+            dataCenters.add(DataCenter.create(name("dc3"), status(Status.Is.up), runner(Runner.Is.on), tagCount(10)));
         }
+
+        return CompletableFuture.completedFuture(dataCenters);
     }
 
     static Props props(ActorRef shardRegion) {
