@@ -1,5 +1,6 @@
 package demo;
 
+import akka.Done;
 import akka.actor.AbstractLoggingActor;
 import akka.actor.ActorRef;
 import akka.actor.Cancellable;
@@ -7,15 +8,12 @@ import akka.actor.Props;
 import akka.pattern.BackoffSupervisor;
 import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
-import akka.stream.javadsl.JavaFlowSupport;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
-import akka.stream.javadsl.Source$;
 import akka.util.Timeout;
 import demo.DispatcherProtocol.Entity;
 import scala.concurrent.duration.FiniteDuration;
 
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -61,14 +59,23 @@ class DispatcherQueryActor extends AbstractLoggingActor {
         }
 
         Source.from(entities)
-                .ask(1, dispatcherHttpPost, Entity.class, Timeout.apply(5, TimeUnit.SECONDS))
+                .ask(1, dispatcherHttpPost, DispatcherHttpPostActor.Response.class, Timeout.apply(5, TimeUnit.SECONDS))
                 .map(r -> {
                     log().debug("Entity post response {}", r);
                     return r;
                 })
-                .runWith(Sink.ignore(), materializer);
+                .runWith(Sink.ignore(), materializer).whenComplete(this::queryResultsProcessed);
 
         log().debug("Query found {} rows for {}", entities.size(), eventTag);
+    }
+
+    private void queryResultsProcessed(@SuppressWarnings("unused") Done done, Throwable throwable) {
+        if (throwable != null) {
+            throw new RuntimeException(String.format("Query failed %s", eventTag), throwable);
+        } else {
+            log().debug("Become idle {}", eventTag);
+            getContext().become(idle);
+        }
     }
 
     private void queryProcessing() {
