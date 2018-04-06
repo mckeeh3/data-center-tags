@@ -5,6 +5,13 @@ import akka.actor.ActorRef;
 import akka.actor.Cancellable;
 import akka.actor.Props;
 import akka.pattern.BackoffSupervisor;
+import akka.stream.ActorMaterializer;
+import akka.stream.Materializer;
+import akka.stream.javadsl.JavaFlowSupport;
+import akka.stream.javadsl.Sink;
+import akka.stream.javadsl.Source;
+import akka.stream.javadsl.Source$;
+import akka.util.Timeout;
 import demo.DispatcherProtocol.Entity;
 import scala.concurrent.duration.FiniteDuration;
 
@@ -18,7 +25,6 @@ class DispatcherQueryActor extends AbstractLoggingActor {
     private final Receive idle;
     private final Receive processing;
     private ActorRef dispatcherHttpPost;
-    private FiniteDuration postEntityTimeoutDuration;
     private Cancellable postEntityTimeoutSchedule;
     private List<Entity> entities = new ArrayList<>();
 
@@ -29,8 +35,6 @@ class DispatcherQueryActor extends AbstractLoggingActor {
 
         processing = receiveBuilder()
                 .matchEquals("query", q -> queryProcessing())
-                .match(DispatcherHttpPostActor.Response.class, this::httpPostResponse)
-                .matchEquals("sendEntityTimeout", q -> sendEntityTimeout())
                 .build();
     }
 
@@ -45,7 +49,6 @@ class DispatcherQueryActor extends AbstractLoggingActor {
 
     private void queryIdle() {
         query();
-        sendNextEntity();
         getContext().become(processing);
     }
 
@@ -56,43 +59,20 @@ class DispatcherQueryActor extends AbstractLoggingActor {
             entities.add(new Entity(Entity.tag(eventTag.id.value), Entity.id(e + "")));
         }
 
+        Materializer materializer = ActorMaterializer.create(context().system());
+        Source.from(entities)
+                .ask(1, dispatcherHttpPost, Entity.class, Timeout.apply(5, TimeUnit.SECONDS))
+                .map(r -> {
+                    log().debug("Entity post response {}", r);
+                    return r;
+                })
+                .runWith(Sink.ignore(), materializer);
+
         log().debug("Query found {} rows for {}", entities.size(), eventTag);
     }
 
     private void queryProcessing() {
         log().debug("Still processing query results ({}) {}", entities.size(), eventTag);
-    }
-
-    private void sendNextEntity() {
-        if (entities.isEmpty()) {
-            getContext().become(idle);
-        } else {
-            dispatcherHttpPost.tell(entities.remove(0), self());
-            schedulePostEntityTimeout();
-        }
-    }
-
-    private void httpPostResponse(DispatcherHttpPostActor.Response response) {
-        log().debug("Entity post response {}", response);
-        cancelPostEntityTimeout();
-        sendNextEntity();
-    }
-
-    private void sendEntityTimeout() {
-        log().warning("No response from last send entity request");
-        sendNextEntity();
-    }
-
-    private void schedulePostEntityTimeout() {
-        cancelPostEntityTimeout();
-
-        postEntityTimeoutSchedule = context().system().scheduler().scheduleOnce(
-                postEntityTimeoutDuration,
-                self(),
-                "sendEntityTimeout",
-                context().dispatcher(),
-                ActorRef.noSender()
-        );
     }
 
     private void cancelPostEntityTimeout() {
@@ -119,7 +99,6 @@ class DispatcherQueryActor extends AbstractLoggingActor {
     @Override
     public void preStart() {
         log().debug("Start {}", eventTag);
-        postEntityTimeoutDuration = retrievePostEntityTimeout();
         dispatcherHttpPost = startHttpActor();
     }
 
@@ -131,10 +110,5 @@ class DispatcherQueryActor extends AbstractLoggingActor {
 
     static Props props(EventTag eventTag) {
         return Props.create(DispatcherQueryActor.class, eventTag);
-    }
-
-    private FiniteDuration retrievePostEntityTimeout() {
-        Duration tickInterval = context().system().settings().config().getDuration("dispatcher.query-post-entity-timeout");
-        return FiniteDuration.create(tickInterval.toNanos(), TimeUnit.NANOSECONDS);
     }
 }
