@@ -27,6 +27,7 @@ class DispatcherQueryActor extends AbstractLoggingActor {
     private ActorRef dispatcherHttpPost;
     private Cancellable postEntityTimeoutSchedule;
     private List<Entity> entities = new ArrayList<>();
+    private final Materializer materializer = ActorMaterializer.create(context().system());
 
     {
         idle = receiveBuilder()
@@ -59,7 +60,6 @@ class DispatcherQueryActor extends AbstractLoggingActor {
             entities.add(new Entity(Entity.tag(eventTag.id.value), Entity.id(e + "")));
         }
 
-        Materializer materializer = ActorMaterializer.create(context().system());
         Source.from(entities)
                 .ask(1, dispatcherHttpPost, Entity.class, Timeout.apply(5, TimeUnit.SECONDS))
                 .map(r -> {
